@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.9)
 project(Life)
 
-set(VERSION 1.0)
+set(VERSION 0.1)
 
 include(CMakeForceCompiler)
 
