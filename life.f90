@@ -30,6 +30,9 @@ program life
         end subroutine
     end interface
 
+    ! call signal handler
+    call signal(2, sigint_handler)
+
     ! set output to UTF-8
     open(unit=output_unit, encoding='utf-8')
 
@@ -59,6 +62,11 @@ program life
     call exit(0)
 
     contains
+        subroutine sigint_handler
+            call show_cursor()
+            call exit(0)
+        end subroutine sigint_handler
+
         subroutine read_arguments()
             use f90getopt
             implicit none
