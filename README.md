@@ -15,7 +15,6 @@ Depending on your operating system, you may change `gfortran7` to `gfortran` and
 ```
 $ gfortran7 -c f90getopt.f90
 $ gfortran7 -Wl,-rpath=/usr/local/lib/gcc7/ -fbackslash -o life life.f90 f90getopt.o
-
 ```
 
 ## Run
