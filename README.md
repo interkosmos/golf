@@ -11,7 +11,12 @@ $ cmake -DCMAKE_Fortran_COMPILER=gfortran7 -DCMAKE_INSTALL_RPATH=/usr/local/lib/
 $ make
 ```
 Depending on your operating system, you may change `gfortran7` to `gfortran` and
-`gcc7` to `gcc`.
+`gcc7` to `gcc`. If you do not want to use CMake, run:
+```
+$ gfortran7 -c f90getopt.f90
+$ gfortran7 -Wl,-rpath=/usr/local/lib/gcc7/ -fbackslash -o life life.f90 f90getopt.o
+
+```
 
 ## Run
 Execute the game with the desired number of generations (default is 60):
