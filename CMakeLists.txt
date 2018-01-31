@@ -7,8 +7,6 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RELEASE)
 endif()
 
-get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
-
 if(CMAKE_Fortran_COMPILER MATCHES "gfortran.*")
     set(CMAKE_SKIP_BUILD_RPATH            FALSE)
     set(CMAKE_BUILD_WITH_INSTALL_RPATH    TRUE)
