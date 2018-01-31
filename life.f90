@@ -3,7 +3,7 @@
 ! CONWAY'S GAME OF LIFE
 !
 ! Author:  Philipp Engel
-! Date:    2017-DEC-22
+! Date:    2017-DEC-30
 ! Licence: ISC
 program life
     use iso_c_binding
@@ -30,7 +30,7 @@ program life
         end subroutine
     end interface
 
-    ! call signal handler
+    ! add signal handler
     call signal(2, sigint_handler)
 
     ! set output to UTF-8
