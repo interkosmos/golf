@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
-project(f90life)
-set(VERSION 0.1)
+project(golf)
+set(VERSION 0.3)
 enable_language(Fortran)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -12,9 +12,9 @@ if(CMAKE_Fortran_COMPILER MATCHES "gfortran*")
     set(CMAKE_BUILD_WITH_INSTALL_RPATH    TRUE)
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-    set(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -ffree-form -std=f2008 -fimplicit-none -fall-intrinsics -fbackslash")
-    set(CMAKE_Fortran_FLAGS_DEBUG   "-Wall -O0 -g3 -fbounds-check")
-    set(CMAKE_Fortran_FLAGS_RELEASE "-Ofast -march=native")
+    set(CMAKE_Fortran_FLAGS         "${CMAKE_Fortran_FLAGS} -std=f2008 -fimplicit-none -fall-intrinsics")
+    set(CMAKE_Fortran_FLAGS_DEBUG   "-Wall -O0 -g -fbounds-check")
+    set(CMAKE_Fortran_FLAGS_RELEASE "-Wall -O2 -march=native")
 endif()
 
 set(TARGET life)
