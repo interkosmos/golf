@@ -3,7 +3,7 @@ Simple text-based clone of the popular cellular automaton written in Fortran
 2003. Should run on most Unix-like operating systems.
 
 ## Build
-CMake and and a Fortran 2003 compiler are required to build the game:
+CMake and a Fortran 2003 compiler are required to build the game:
 ```
 $ mkdir build && cd build/
 $ cmake ..
