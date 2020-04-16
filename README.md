@@ -5,21 +5,24 @@ Simple text-based clone of the popular cellular automaton written in Fortran
 ![Screen Shot](screenshot.png)
 
 ## Build
-CMake and a Fortran 2003 compiler are required to build the game:
+You can use CMake and GNU Fortran to build the game:
+
 ```
 $ mkdir build && cd build/
 $ cmake ..
 $ make
 ```
+
 If you do not want to use CMake, run:
+
 ```
-$ gfortran8 -c f90getopt.f90
-$ gfortran8 -Wl,-rpath=/usr/local/lib/gcc8/ -o life life.f90 f90getopt.o
+$ gfortran9 -c src/getopt.f90
+$ gfortran9 -o golf src/golf.f90 getopt.o
 ```
 
 ## Run
 ```
-$ ./life --file world.txt --columns 30 --rows 10 --generations 100
+$ ./golf --file world.txt --columns 30 --rows 10 --generations 100
 ```
 
 ## Licence
