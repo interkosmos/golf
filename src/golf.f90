@@ -47,13 +47,13 @@ program life
 
     character(len=*), parameter :: ANSI_ESC   = achar(27)
     integer,          parameter :: SLEEP_TIME = 250 * 1000
-    real,             parameter :: VERSION    = 0.4
+    real,             parameter :: VERSION    = 0.5
 
     logical, allocatable :: world(:, :)     ! World map.
     logical, allocatable :: buffer(:, :)    ! Buffered world map.
-    character(len=100)   :: file_name = ''  ! File name of the stored world.
-    integer              :: rows      = 10  ! Rows (default: 10)
-    integer              :: columns   = 30  ! Columns (default: 30)
+    character(len=256)   :: file_name = ''  ! File name of the stored world.
+    integer              :: width     = 30  ! Num. of columns. (default: 30)
+    integer              :: height    = 10  ! Num. of rows. (default: 10)
     integer              :: max_gen   = 60  ! Maximum number of generations (default: 60).
     integer              :: gen             ! Current generation.
     integer              :: rc
@@ -70,79 +70,66 @@ program life
     ! Catch SIGINT.
     call signal(2, sigint_handler)
 
-    ! Init everything.
-    call read_arguments()
-    call init_world()
-    call read_map(file_name)
     call hide_cursor()
     call cls()
+
+    ! Init everything.
+    call read_arguments(version, file_name, width, height, max_gen)
+
+    allocate ( world(width, height))
+    allocate (buffer(width, height))
+
+    call read_map(file_name, world, width, height)
 
     ! Main loop.
     do gen = 1, max_gen
         call reset_cursor()
         print '(a, /)', "CONWAY'S GAME OF LIFE"
-        call output()
+        call output(world, width, height)
         print '(/, a, i0, a, i0)', 'Generation: ', gen, '/', max_gen
 
-        call next()
+        call next(world, buffer, width, height)
         rc = c_usleep(SLEEP_TIME)
     end do
 
     ! Quit.
+    if (allocated(world))  deallocate (world)
+    if (allocated(buffer)) deallocate (buffer)
+
     call show_cursor()
-    call clean()
 contains
-    logical function get_cell(x, y)
-        !! Returns cell of world.
-        integer, intent(in) :: x
-        integer, intent(in) :: y
-        integer             :: i, j
-
-        ! We are on a torus.
-        i = mod(x, columns - 1) + 1
-        j = mod(y, rows - 1) + 1
-
-        get_cell = world(i, j)
-    end function get_cell
-
-    integer function nneighbours(x, y)
+    integer function nneighbours(world, width, height, x, y)
         !! Counts surrounding neighbours of field with given coordinates.
-        !! Instead of do loops one can also write:
-        !!
-        !!     forall (i = x - 1:x + 1, j = y - 1:y + 1, i /= j .and. get_cell(i, j)) &
-        !!         nneighbours = nneighbours + 1
-        !!
-        !! (Of course, `get_cell()` must be pure.)
-        integer, intent(in) :: x
-        integer, intent(in) :: y
-        integer             :: i, j
+        logical, allocatable, intent(inout) :: world(:, :)
+        integer,              intent(in)    :: width
+        integer,              intent(in)    :: height
+        integer,              intent(in)    :: x
+        integer,              intent(in)    :: y
+        integer                             :: i, j, nx, ny
 
         nneighbours = 0
 
-        do j = y - 1, y + 1
-            do i = x - 1, x + 1
-                if (i == x .and. j == y) &
-                   cycle
+        do concurrent (j = y - 1:y + 1)
+            do concurrent (i = x - 1:x + 1)
+                if (i == x .and. j == y) cycle
 
-                if (get_cell(i, j)) &
-                    nneighbours = nneighbours + 1
+                nx = 1 + modulo(i - 1, width)
+                ny = 1 + modulo(j - 1, height)
+
+                if (world(nx, ny)) nneighbours = nneighbours + 1
             end do
         end do
     end function nneighbours
 
-    subroutine clean()
-        !! Cleans up memory.
-        if (allocated(world)) &
-            deallocate (world)
-
-        if (allocated(buffer)) &
-            deallocate (buffer)
-    end subroutine clean
-
-    subroutine read_arguments()
+    subroutine read_arguments(version, file_name, width, height, max_gen)
         !! Reads command-line arguments.
         use :: f90getopt
-        type(option_type) :: opts(5)
+        real,               intent(in)  :: version
+        character(len=256), intent(out) :: file_name
+        integer,            intent(out) :: width
+        integer,            intent(out) :: height
+        integer,            intent(out) :: max_gen
+        type(option_type)               :: opts(5)
 
         opts(1) = option_type('rows',        .true.,  'r')
         opts(2) = option_type('columns',     .true.,  'c')
@@ -155,42 +142,45 @@ contains
                 case (char(0))
                     exit
                 case ('l')
-                    read (opt_arg, '(i3)') rows
+                    read (opt_arg, '(i3)') height
                 case ('c')
-                    read (opt_arg, '(i3)') columns
+                    read (opt_arg, '(i3)') width
                 case ('f')
                     read (opt_arg, '(a)') file_name
                 case ('g')
                     read (opt_arg, '(i3)') max_gen
                 case ('v')
                     print '(a, f3.1)', 'Game of Life ', version
-                    call exit(0)
+                    stop
             end select
         end do
     end subroutine read_arguments
 
-    subroutine read_map(file_name)
+    subroutine read_map(file_name, world, width, height)
         !! Loads world from text file.
-        character(len=100), intent(in) :: file_name
-        character(len=columns)         :: line
-        integer                        :: fu, rc, x, y
+        character(len=256),   intent(in)    :: file_name
+        logical, allocatable, intent(inout) :: world(:, :)
+        integer,              intent(in)    :: width
+        integer,              intent(in)    :: height
+        character(len=width)                :: line
+        integer                             :: fu, rc, x, y
 
         if (len_trim(file_name) == 0) then
             write (stderr, '(a)') 'Invalid file name'
             stop
         end if
 
-        open (newunit=fu, file=file_name, action='read', iostat=rc)
+        open (newunit=fu, file=trim(file_name), action='read', iostat=rc)
 
         if (rc /= 0) then
             write (stderr, '(3a, i0)') 'Reading file "', trim(file_name), '" failed: error ', rc
             stop
         else
-            do y = 1, rows
+            do y = 1, height
                 read (fu, *, iostat=rc) line
                 if (rc /= 0) exit
 
-                do x = 1, columns
+                do x = 1, width
                     if (line(x:x) == '#') world(x, y) = .true.
                 end do
             end do
@@ -199,23 +189,20 @@ contains
         close (fu)
     end subroutine read_map
 
-    subroutine init_world()
-        !! Initialises the world.
-        allocate (world(columns, rows))
-        allocate (buffer(columns, rows))
-    end subroutine init_world
-
-    subroutine output()
+    subroutine output(world, width, height)
         !! Outputs current state of world.
-        character(len=1), parameter :: space = '.'
-        character(len=1), parameter :: cell  = '#'
-        character(len=5), parameter :: color = ANSI_ESC // '[32m'
-        character(len=5), parameter :: reset = ANSI_ESC // '[39m'
-        integer                     :: x, y
+        character(len=1), parameter         :: space = '.'
+        character(len=1), parameter         :: cell  = '#'
+        character(len=5), parameter         :: color = ANSI_ESC // '[32m'
+        character(len=5), parameter         :: reset = ANSI_ESC // '[39m'
+        logical, allocatable, intent(inout) :: world(:, :)
+        integer,              intent(in)    :: width
+        integer,              intent(in)    :: height
+        integer                             :: x, y
 
-        do y = 1, rows
-            do x = 1, columns
-                if (.not. get_cell(x, y)) then
+        do y = 1, height
+            do x = 1, width
+                if (.not. world(x, y)) then
                     write (*, '(a)', advance='no') space
                 else
                     write (*, '(3a)', advance='no') color, cell, reset
@@ -226,43 +213,33 @@ contains
         end do
     end subroutine output
 
-    subroutine next()
+    subroutine next(world, buffer, width, height)
         !! Does next iteration.
-        integer :: n, x, y
-        logical :: cell
+        logical, allocatable, intent(inout) :: world(:, :)
+        logical, allocatable, intent(inout) :: buffer(:, :)
+        integer,              intent(in)    :: width
+        integer,              intent(in)    :: height
+        integer                             :: n, x, y
+        logical                             :: cell
 
         buffer = .false.
 
-        do y = 1, rows
-            do x = 1, columns
-                cell = get_cell(x, y)
-                n    = nneighbours(x, y)
+        do y = 1, height
+            do x = 1, width
+                cell = world(x, y)
+                n    = nneighbours(world, width, height, x, y)
 
                 ! New cell is born.
                 if (.not. cell .and. n == 3) &
-                    call set_cell(x, y, .true.)
+                    buffer(x, y) = .true.
                 ! Cell stays alive.
                 if (cell .and. (n == 2 .or. n == 3)) &
-                    call set_cell(x, y, .true.)
+                    buffer(x, y) = .true.
             end do
         end do
 
         world = buffer
     end subroutine next
-
-    subroutine set_cell(x, y, cell)
-        !! Sets single field in buffered world.
-        integer, intent(in) :: x
-        integer, intent(in) :: y
-        logical, intent(in) :: cell
-        integer             :: i, j
-
-        ! We are on a torus.
-        i = mod(x, columns - 1) + 1
-        j = mod(y, rows - 1) + 1
-
-        buffer(i, j) = cell
-    end subroutine set_cell
 
     subroutine cls()
         print '(2a)', ANSI_ESC, '[2J'
