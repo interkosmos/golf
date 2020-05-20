@@ -98,29 +98,6 @@ program life
 
     call show_cursor()
 contains
-    integer function nneighbours(world, width, height, x, y)
-        !! Counts surrounding neighbours of field with given coordinates.
-        logical, allocatable, intent(inout) :: world(:, :)
-        integer,              intent(in)    :: width
-        integer,              intent(in)    :: height
-        integer,              intent(in)    :: x
-        integer,              intent(in)    :: y
-        integer                             :: i, j, nx, ny
-
-        nneighbours = 0
-
-        do concurrent (j = y - 1:y + 1)
-            do concurrent (i = x - 1:x + 1)
-                if (i == x .and. j == y) cycle
-
-                nx = 1 + modulo(i - 1, width)
-                ny = 1 + modulo(j - 1, height)
-
-                if (world(nx, ny)) nneighbours = nneighbours + 1
-            end do
-        end do
-    end function nneighbours
-
     subroutine read_arguments(version, file_name, width, height, max_gen)
         !! Reads command-line arguments.
         use :: f90getopt
@@ -219,15 +196,26 @@ contains
         logical, allocatable, intent(inout) :: buffer(:, :)
         integer,              intent(in)    :: width
         integer,              intent(in)    :: height
-        integer                             :: n, x, y
+        integer                             :: i, j, n, nx, ny, x, y
         logical                             :: cell
 
         buffer = .false.
 
-        do y = 1, height
-            do x = 1, width
+        do concurrent (y = 1:height)
+            do concurrent (x = 1:width)
                 cell = world(x, y)
-                n    = nneighbours(world, width, height, x, y)
+                n    = 0
+
+                do concurrent (j = y - 1:y + 1)
+                    do concurrent (i = x - 1:x + 1)
+                        if (i == x .and. j == y) cycle
+
+                        nx = 1 + modulo(i - 1, width)
+                        ny = 1 + modulo(j - 1, height)
+
+                        if (world(nx, ny)) n = n + 1
+                    end do
+                end do
 
                 ! New cell is born.
                 if (.not. cell .and. n == 3) &
